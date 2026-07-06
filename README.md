@@ -36,7 +36,7 @@ An intelligent student risk assessment and analytics platform that combines AI-p
 7. **Store** - Results saved to n8n data table for later reference
 8. **Chat** - Interact with the assistant to explore results
 
-![n8n workflow screenshot](images/workflow_screenshot.svg)
+![n8n workflow screenshot](https://github.com/a-man77/student_analyser/blob/main/images/workflow_screenshot.png)
 
 #### Live Demo
 - Try the deployed workflow here: https://aman1980.app.n8n.cloud/form/15905efa-ae87-4e8d-9dbc-e1a7d1757dd2
