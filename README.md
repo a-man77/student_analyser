@@ -1,6 +1,6 @@
 # Student Analyser AI
 
-An intelligent student risk assessment and analytics platform that combines AI-powered analysis with an interactive web interface. Upload your class roster and get comprehensive risk reports, predictions, and actionable insights with just a few clicks.
+An intelligent student risk assessment and analytics platform that combines AI-powered analysis with an interactive web interface. Upload your class roster and get comprehensive risk reports, predi[...]
 
 ## 🎯 Features
 
@@ -35,6 +35,11 @@ An intelligent student risk assessment and analytics platform that combines AI-p
 6. **Generate** - Professional HTML and PDF reports with visualizations
 7. **Store** - Results saved to n8n data table for later reference
 8. **Chat** - Interact with the assistant to explore results
+
+![n8n workflow screenshot](images/workflow_screenshot.svg)
+
+#### Live Demo
+- Try the deployed workflow here: https://aman1980.app.n8n.cloud/form/15905efa-ae87-4e8d-9dbc-e1a7d1757dd2
 
 ### What Gets Analyzed
 
