@@ -1,0 +1,759 @@
+{
+  "name": "student analyser ai",
+  "nodes": [
+    {
+      "parameters": {
+        "operation": "xlsx",
+        "options": {
+          "headerRow": true,
+          "includeEmptyCells": false
+        }
+      },
+      "id": "7a999818-1a83-4152-87ff-a1d749554a34",
+      "name": "Extract Student Data",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [
+        -464,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and validate student data\nconst cleanedItems = [];\n\nfor (const item of $input.all()) {\n  const data = item.json;\n\n  // Skip rows with missing critical fields\n  if (!data.student_id || !data.name) continue;\n\n  // Normalize and clean data\n  const cleaned = {\n    studentId: String(data.student_id).trim(),\n    name: String(data.name).trim(),\n    gpa: parseFloat(data.gpa) || 0,\n    attendance: parseFloat(data.attendance) || 0,\n    assignmentsMissed: parseInt(data.assignments_missed) || 0,\n    engagementScore: parseFloat(data.engagement_score) || 0,\n    // Add timestamp\n    uploadedAt: new Date().toISOString()\n  };\n\n  cleanedItems.push({ json: cleaned });\n}\n\nreturn cleanedItems;"
+      },
+      "id": "29ad944e-55d6-4755-bfde-9c06a9a297f1",
+      "name": "Clean & Validate Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -240,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Analyze this student's data and predict academic risk:\nStudent: {{ $json.name }} (ID: {{ $json.studentId }})\nGPA: {{ $json.gpa }}\nAttendance: {{ $json.attendance }}%\nAssignments Missed: {{ $json.assignmentsMissed }}\nEngagement Score: {{ $json.engagementScore }}\n\nProvide:\n1. Risk Level (Low/Medium/High) based on:\n   - GPA < 6 = High risk\n   - Attendance < 75% = High risk\n   - GPA 6-7.5 OR Attendance 75-85% = Medium risk\n   - Otherwise = Low risk\n2. Risk Score (0-100): Weighted combination of factors\n3. Dropout Probability (0-1): Statistical likelihood based on patterns\n4. Pass Probability (0-1): Likelihood of passing the course\n5. Predicted Grade: Forecasted final grade based on current trajectory\n6. Trends: Identify patterns (improving, declining, stable)\n7. Anomalies: Detect unusual patterns (sudden drops, inconsistencies)\n8. Recommendations: Specific, actionable interventions tailored to this student's situation \nRespond with ONLY a valid JSON object in this exact format, and nothing else (no markdown, no code fences, no explanation):\n{\"riskLevel\":\"Low\",\"riskScore\":15,\"dropoutProbability\":0.08,\"passProbability\":0.95,\"predictedGrade\":87,\"trends\":[\"...\"],\"anomalies\":[],\"recommendations\":[\"...\"]}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are an expert educational data analyst specializing in student risk assessment and early intervention. Analyze student performance data to predict academic outcomes and provide evidence-based recommendations."
+        }
+      },
+      "id": "b42a04d3-9478-48c4-abd9-ce47a842bff3",
+      "name": "AI Risk Predictor",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        0,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsonSchemaExample": {
+          "riskLevel": "Low",
+          "riskScore": 15,
+          "dropoutProbability": 0.08,
+          "passProbability": 0.95,
+          "predictedGrade": 87,
+          "trends": [
+            "Improving attendance",
+            "Consistent performance"
+          ],
+          "anomalies": [],
+          "recommendations": [
+            "Continue current support",
+            "Monitor for stress during finals"
+          ]
+        },
+        "autoFix": true
+      },
+      "id": "17d82ab6-fb95-4846-b809-956592760d85",
+      "name": "Risk Analysis Schema",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        128,
+        288
+      ],
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "operation": "upsert",
+        "dataTableId": {
+          "__rl": true,
+          "value": "iehoJXfvaYnJEnJ3",
+          "mode": "list",
+          "cachedResultName": "student_analysis",
+          "cachedResultUrl": "/projects/6eq3SxlRXW39abw9/datatables/iehoJXfvaYnJEnJ3"
+        },
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "student_id",
+              "keyValue": "=const originalData = $('Clean & Validate Data').first().json;\nconst raw = $input.first().json.output || $input.first().json.text;\nconst cleaned = raw.replace(/```json\\n?|```/g, '').trim();\nconst parsed = JSON.parse(cleaned);\n\nreturn [{\n  json: {\n    student_id: originalData.studentId,\n    name: originalData.name,\n    gpa: originalData.gpa,\n    attendance: originalData.attendance,\n    assignments_missed: originalData.assignmentsMissed,\n    engagement_score: originalData.engagementScore,\n    risk_level: parsed.riskLevel,\n    risk_score: parsed.riskScore,\n    reason: [...(parsed.trends || []), ...(parsed.anomalies || [])].join('; ') || 'No significant patterns detected',\n    recommendation: (parsed.recommendations || []).join('; ')\n  }\n}];"
+            }
+          ]
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "student_id",
+              "displayName": "student_id",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_level",
+              "displayName": "risk_level",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "reason",
+              "displayName": "reason",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "recommendation",
+              "displayName": "recommendation",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "gpa",
+              "displayName": "gpa",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "attendance",
+              "displayName": "attendance",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "engagement_score",
+              "displayName": "engagement_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "risk_score",
+              "displayName": "risk_score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            },
+            {
+              "id": "assignments_missed",
+              "displayName": "assignments_missed",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "number",
+              "readOnly": false,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "7aad36b9-67f0-46ec-ae4f-9af629dc26e0",
+      "name": "Store Student Analysis",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        496,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "iehoJXfvaYnJEnJ3",
+          "mode": "list",
+          "cachedResultName": "student_analysis",
+          "cachedResultUrl": "/projects/6eq3SxlRXW39abw9/datatables/iehoJXfvaYnJEnJ3"
+        },
+        "returnAll": true,
+        "orderBy": true,
+        "orderByColumn": "updatedAt"
+      },
+      "id": "8b8cccb8-3dbb-4cca-a19e-a345f9a8cdc9",
+      "name": "Get All Student Data",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        16
+      ],
+      "executeOnce": true,
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const students = $input.all().map(item => item.json);\nconst totalStudents = students.length;\n\n// Normalize risk level for consistent matching (handles casing/whitespace issues)\nconst norm = s => (s.risk_level || '').trim().toLowerCase();\n\nconst highRisk = students.filter(s => norm(s) === 'high').length;\nconst mediumRisk = students.filter(s => norm(s) === 'medium').length;\nconst lowRisk = students.filter(s => norm(s) === 'low').length;\n\n// Averages\nconst avgGrade = totalStudents\n  ? students.reduce((sum, s) => sum + (parseFloat(s.gpa) || 0), 0) / totalStudents\n  : 0;\n\nconst avgAttendance = totalStudents\n  ? students.reduce((sum, s) => sum + (parseFloat(s.attendance) || 0), 0) / totalStudents\n  : 0;\n\nconst avgDropoutProb = totalStudents\n  ? students.reduce((sum, s) => sum + (parseFloat(s.risk_score) || 0), 0) / totalStudents\n  : 0;\n\n// Risk distribution\nconst riskDistribution = {\n  High: highRisk,\n  Medium: mediumRisk,\n  Low: lowRisk\n};\n\n// Performance trends (GPA on a 0-10 scale)\nconst performanceTrends = {\n  'A (90-100)': students.filter(s => s.gpa >= 9).length,\n  'B (80-89)': students.filter(s => s.gpa >= 8 && s.gpa < 9).length,\n  'C (70-79)': students.filter(s => s.gpa >= 7 && s.gpa < 8).length,\n  'D (60-69)': students.filter(s => s.gpa >= 6 && s.gpa < 7).length,\n  'F (<60)': students.filter(s => s.gpa < 6).length\n};\n\n// Top at-risk students (High or Medium, sorted by risk score)\nconst atRiskStudents = students\n  .filter(s => norm(s) === 'high' || norm(s) === 'medium')\n  .sort((a, b) => (b.risk_score || 0) - (a.risk_score || 0))\n  .slice(0, 10);\n\nreturn [{\n  json: {\n    overview: {\n      totalStudents,\n      highRisk,\n      mediumRisk,\n      lowRisk,\n      avgGrade: avgGrade.toFixed(2),\n      avgAttendance: avgAttendance.toFixed(2),\n      avgDropoutProb: avgDropoutProb.toFixed(2)\n    },\n    riskDistribution,\n    performanceTrends,\n    atRiskStudents,\n    allStudents: students,\n    generatedAt: new Date().toISOString()\n  }\n}];\n\n\n"
+      },
+      "id": "ce6d4516-c8a7-48d6-94aa-6142703ace8d",
+      "name": "Calculate Dashboard KPIs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        832,
+        48
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $input.first().json;\n\nconst html = `<!DOCTYPE html>\n<html>\n<head>\n  <meta charset=\"UTF-8\">\n  <style>\n    body { font-family: Arial, sans-serif; margin: 40px; }\n    h1 { color: #2c3e50; border-bottom: 3px solid #3498db; padding-bottom: 10px; }\n    h2 { color: #34495e; margin-top: 30px; }\n    .kpi-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin: 20px 0; }\n    .kpi-card { background: #ecf0f1; padding: 20px; border-radius: 8px; text-align: center; }\n    .kpi-value { font-size: 32px; font-weight: bold; color: #2980b9; }\n    .kpi-label { font-size: 14px; color: #7f8c8d; margin-top: 5px; }\n    table { width: 100%; border-collapse: collapse; margin: 20px 0; }\n    th { background: #3498db; color: white; padding: 12px; text-align: left; }\n    td { padding: 10px; border-bottom: 1px solid #ddd; }\n    tr:hover { background: #f5f5f5; }\n    .risk-high { color: #e74c3c; font-weight: bold; }\n    .risk-medium { color: #f39c12; font-weight: bold; }\n    .risk-low { color: #27ae60; font-weight: bold; }\n  </style>\n</head>\n<body>\n  <h1>Student Analytics Report</h1>\n  <p><strong>Generated:</strong> ${new Date().toLocaleString()}</p>\n\n  <h2>Overview KPIs</h2>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\">\n      <div class=\"kpi-value\">${data.overview.totalStudents}</div>\n      <div class=\"kpi-label\">Total Students</div>\n    </div>\n    <div class=\"kpi-card\">\n      <div class=\"kpi-value\">${data.overview.avgGrade}</div>\n      <div class=\"kpi-label\">Average Grade (GPA)</div>\n    </div>\n    <div class=\"kpi-card\">\n      <div class=\"kpi-value\">${data.overview.avgAttendance}%</div>\n      <div class=\"kpi-label\">Average Attendance</div>\n    </div>\n  </div>\n\n  <h2>Risk Distribution</h2>\n  <div class=\"kpi-grid\">\n    <div class=\"kpi-card\">\n      <div class=\"kpi-value\">${data.riskDistribution.High}</div>\n      <div class=\"kpi-label\">High Risk</div>\n    </div>\n    <div class=\"kpi-card\">\n      <div class=\"kpi-value\">${data.riskDistribution.Medium}</div>\n      <div class=\"kpi-label\">Medium Risk</div>\n    </div>\n    <div class=\"kpi-card\">\n      <div class=\"kpi-value\">${data.riskDistribution.Low}</div>\n      <div class=\"kpi-label\">Low Risk</div>\n    </div>\n  </div>\n\n  <h2>Top At-Risk Students</h2>\n  <table>\n    <thead>\n      <tr>\n        <th>Student ID</th>\n        <th>Name</th>\n        <th>Risk Level</th>\n        <th>Risk Score</th>\n        <th>Grade</th>\n        <th>Attendance</th>\n        <th>Dropout Prob</th>\n      </tr>\n    </thead>\n    <tbody>\n      ${data.atRiskStudents.map(s => `\n        <tr>\n          <td>${s.student_id}</td>\n          <td>${s.name}</td>\n          <td class=\"risk-${(s.risk_level || '').toLowerCase()}\">${s.risk_level}</td>\n          <td>${s.risk_score}</td>\n          <td>${s.gpa}</td>\n          <td>${s.attendance}%</td>\n          <td>${s.dropout_probability ? (s.dropout_probability * 100).toFixed(1) + '%' : 'N/A'}</td>\n        </tr>\n      `).join('')}\n    </tbody>\n  </table>\n\n  <h2>Performance Distribution</h2>\n  <table>\n    <thead>\n      <tr>\n        <th>Grade Range</th>\n        <th>Number of Students</th>\n        <th>Percentage</th>\n      </tr>\n    </thead>\n    <tbody>\n      ${Object.entries(data.performanceTrends).map(([range, count]) => `\n        <tr>\n          <td>${range}</td>\n          <td>${count}</td>\n          <td>${((count / data.overview.totalStudents) * 100).toFixed(1)}%</td>\n        </tr>\n      `).join('')}\n    </tbody>\n  </table>\n</body>\n</html>`;\n\nreturn [{ json: { html } }];\n  \n  "
+      },
+      "id": "4944babc-99ee-400d-9a4e-62f248e1eb6d",
+      "name": "Generate Report HTML",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1008,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.pdfshift.io/v3/convert/pdf",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-API-Key",
+              "value": "sk_438428aa60918387baeef97952060be2fa1402e5"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "source",
+              "value": "={{ $json.html }}"
+            },
+            {
+              "name": "landscape",
+              "value": "false"
+            },
+            {
+              "name": "format",
+              "value": "A4"
+            },
+            {
+              "name": "margin",
+              "value": "20mm"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "id": "d3f9e2e6-24e5-4083-8a43-4bee88e6135d",
+      "name": "Convert HTML to PDF",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        1232,
+        176
+      ]
+    },
+    {
+      "parameters": {
+        "public": true,
+        "mode": "webhook",
+        "options": {
+          "responseMode": "streaming"
+        }
+      },
+      "id": "144e0dd8-275f-492f-955a-88dffa9c9045",
+      "name": "AI Data Assistant Chat",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        -688,
+        608
+      ],
+      "webhookId": "d61273b3-8794-48bb-ae35-8948ef0e771d"
+    },
+    {
+      "parameters": {
+        "operation": "get",
+        "dataTableId": {
+          "__rl": true,
+          "value": "dW51rivfH89NjgF1",
+          "mode": "list",
+          "cachedResultName": "student_analysis",
+          "cachedResultUrl": "/projects/5GGZXId1fzpv2rLd/datatables/dW51rivfH89NjgF1"
+        },
+        "returnAll": true
+      },
+      "id": "144476f3-a2f5-44b7-b26c-0d9a74ad7378",
+      "name": "Fetch Student Analytics",
+      "type": "n8n-nodes-base.dataTable",
+      "typeVersion": 1.1,
+      "position": [
+        -464,
+        608
+      ],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "destinationFieldName": "students",
+        "options": {}
+      },
+      "id": "462edb6a-07ee-4f0f-b271-95e4c20122aa",
+      "name": "Aggregate Student Data",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        -240,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=hello \n",
+        "options": {
+          "systemMessage": "=You are an expert student analytics assistant. You have access to comprehensive student data including grades, attendance, risk levels, predictions, and recommendations.\n\nAvailable student data:\n{{ JSON.stringify($(\"Aggregate Student Data\").item.json.students, null, 2) }}\n\nAnswer questions about:\n- Individual student performance and risk\n- Trends and patterns across the student population\n- At-risk students requiring intervention\n- Performance distributions and statistics\n- Recommendations for specific students or groups\n\nProvide clear, data-driven insights with specific numbers and actionable recommendations.",
+          "enableStreaming": true
+        }
+      },
+      "id": "c75e7eb6-5002-48ce-8a12-269d97d7726e",
+      "name": "Student Data Assistant",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3.1,
+      "position": [
+        -16,
+        608
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "id": "d5645bef-9a66-468c-a703-cdde9585b02c",
+      "name": "Chat GPT-5 Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        64,
+        832
+      ],
+      "credentials": {
+        "openAiApi": {
+          "id": "YUYkvMiwZ5qm9d9X",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "returnBinary",
+        "completionTitle": "Analysis Complete!",
+        "completionMessage": "Your student data has been analyzed. Download the PDF report below.",
+        "options": {}
+      },
+      "id": "1868f329-2e3a-442a-8cdc-e569e3c7028c",
+      "name": "Respond to Form",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1456,
+        176
+      ],
+      "webhookId": "cb3818a5-c331-4699-a10f-b8fd81cc98f0"
+    },
+    {
+      "parameters": {
+        "formTitle": "Student Data Upload",
+        "formDescription": "Upload your student CSV or Excel file for AI-powered risk analysis",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Student Data File",
+              "fieldType": "file",
+              "fieldName": "data",
+              "multipleFiles": false,
+              "acceptFileTypes": ".csv,.xlsx,.xls",
+              "requiredField": true
+            }
+          ]
+        },
+        "options": {
+          "buttonLabel": "Analyze Students"
+        }
+      },
+      "id": "61376a32-7cff-4af1-9ee1-781980175feb",
+      "name": "Upload Form Trigger",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        -688,
+        176
+      ],
+      "webhookId": "15905efa-ae87-4e8d-9dbc-e1a7d1757dd2"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "list",
+          "value": "gpt-5-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        208,
+        400
+      ],
+      "id": "91b5fe17-81c5-41b9-8a6f-a7012e4cda3a",
+      "name": "OpenAI Chat Model1",
+      "disabled": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\nconst results = [];\n\nfor (let i = 0; i < allItems.length; i++) {\n  const originalData = $('Clean & Validate Data').all()[i].json;\n  const raw = allItems[i].json.output || allItems[i].json.text;\n  const cleaned = raw.replace(/```json\\n?|```/g, '').trim();\n  const parsed = JSON.parse(cleaned);\n\n  results.push({\n    json: {\n      student_id: originalData.studentId,\n      name: originalData.name,\n      gpa: originalData.gpa,\n      attendance: originalData.attendance,\n      assignments_missed: originalData.assignmentsMissed,\n      engagement_score: originalData.engagementScore,\n      risk_level: parsed.riskLevel,\n      risk_score: parsed.riskScore,\n      reason: [...(parsed.trends || []), ...(parsed.anomalies || [])].join('; ') || 'No significant patterns detected',\n      recommendation: (parsed.recommendations || []).join('; ')\n    }\n  });\n}\n\nreturn results;\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        288,
+        0
+      ],
+      "id": "df774a67-f420-4f6b-b686-918b3724cd16",
+      "name": "Code in JavaScript"
+    },
+    {
+      "parameters": {
+        "contextWindowLength": 30
+      },
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.4,
+      "position": [
+        208,
+        832
+      ],
+      "id": "b7092d35-a315-4069-8aa7-9acd67a212e8",
+      "name": "Simple Memory"
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "value": "gpt-4o-mini",
+          "mode": "list",
+          "cachedResultName": "gpt-4o-mini"
+        },
+        "builtInTools": {},
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.3,
+      "position": [
+        -32,
+        272
+      ],
+      "id": "8f63b5e4-9c8e-45e4-b65f-bdaf3e7a45f8",
+      "name": "OpenAI Chat Model",
+      "credentials": {
+        "openAiApi": {
+          "id": "YUYkvMiwZ5qm9d9X",
+          "name": "n8n free OpenAI API credits"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Extract Student Data": {
+      "main": [
+        [
+          {
+            "node": "Clean & Validate Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean & Validate Data": {
+      "main": [
+        [
+          {
+            "node": "AI Risk Predictor",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Risk Predictor": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Risk Analysis Schema": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Risk Predictor",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Student Analysis": {
+      "main": [
+        [
+          {
+            "node": "Get All Student Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get All Student Data": {
+      "main": [
+        [
+          {
+            "node": "Calculate Dashboard KPIs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Dashboard KPIs": {
+      "main": [
+        [
+          {
+            "node": "Generate Report HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Generate Report HTML": {
+      "main": [
+        [
+          {
+            "node": "Convert HTML to PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Convert HTML to PDF": {
+      "main": [
+        [
+          {
+            "node": "Respond to Form",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Data Assistant Chat": {
+      "main": [
+        [
+          {
+            "node": "Fetch Student Analytics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Student Analytics": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Student Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Student Data": {
+      "main": [
+        [
+          {
+            "node": "Student Data Assistant",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat GPT-5 Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Student Data Assistant",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Upload Form Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Student Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model1": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Risk Analysis Schema",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Store Student Analysis",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "Student Data Assistant",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Risk Predictor",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate",
+    "availableInMCP": false,
+    "timeSavedMode": "fixed",
+    "callerPolicy": "workflowsFromSameOwner"
+  },
+  "versionId": "e2160922-3899-43ee-be92-f36d66eb7a70",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "fa23c8129466e74a240eeac2019ab0dfcbe954db354218a672349db04620868c"
+  },
+  "nodeGroups": [],
+  "id": "WtX0ynyYlVFs4JR9",
+  "tags": []
+}
